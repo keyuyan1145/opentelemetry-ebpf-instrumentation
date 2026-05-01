@@ -1678,6 +1678,7 @@
             "type": "string",
             "enum": [
               "*",
+              "amqp",
               "couchbase",
               "dns",
               "genai",
@@ -2053,6 +2054,7 @@
             "type": "string",
             "enum": [
               "*",
+              "amqp",
               "couchbase",
               "dns",
               "genai",
@@ -2594,6 +2596,7 @@
             "type": "string",
             "enum": [
               "*",
+              "amqp",
               "couchbase",
               "dns",
               "genai",
@@ -2620,6 +2623,7 @@
             "kafka",
             "mqtt",
             "nats",
+            "amqp",
             "mongo",
             "couchbase",
             "memcached"
