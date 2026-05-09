@@ -1238,22 +1238,31 @@ func SpanStatusCode(span *Span) string {
 	return StatusCodeUnset
 }
 
+func SpanDBStatusMessage(span *Span, dbError string) string {
+	if span.Status != 0 && dbError != "" {
+		return dbError
+	}
+	return ""
+}
+
+func (s *Span) IsDBSpan() bool {
+	switch s.Type {
+	case EventTypeRedisClient, EventTypeRedisServer, EventTypeMongoClient, EventTypeCouchbaseClient, EventTypeMemcachedClient, EventTypeMemcachedServer, EventTypeSQLClient, EventTypeSQLServer:
+		return true
+	case EventTypeHTTPClient:
+		if s.SubType == HTTPSubtypeSQLPP {
+			return true
+		}
+	}
+
+	return false
+}
+
 func SpanStatusMessage(span *Span) string {
 	switch span.Type {
-	case EventTypeRedisClient, EventTypeRedisServer, EventTypeMongoClient, EventTypeCouchbaseClient, EventTypeMemcachedClient, EventTypeMemcachedServer:
-		if span.Status != 0 && span.DBError.Description != "" {
-			return span.DBError.Description
-		}
-	case EventTypeSQLClient, EventTypeSQLServer:
-		if span.Status != 0 && span.SQLError != nil {
-			return span.SQLErrorDescription()
-		}
 	case EventTypeManualSpan:
 		return span.Path
 	case EventTypeHTTPClient:
-		if span.SubType == HTTPSubtypeSQLPP && span.Status != 0 && span.DBError.Description != "" {
-			return span.DBError.Description
-		}
 		if span.SubType == HTTPSubtypeJSONRPC && span.JSONRPC != nil && span.JSONRPC.ErrorMessage != "" {
 			return span.JSONRPC.ErrorMessage
 		}

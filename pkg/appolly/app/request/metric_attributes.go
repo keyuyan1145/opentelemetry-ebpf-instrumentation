@@ -345,3 +345,7 @@ func DNSAnswers(val string) attribute.KeyValue {
 func ErrorMessage(val string) attribute.KeyValue {
 	return attribute.Key(attr.ErrorMessage).String(val)
 }
+
+func DBResponseError(val string) attribute.KeyValue {
+	return attribute.Key(attr.DBResponseError).String(val)
+}
