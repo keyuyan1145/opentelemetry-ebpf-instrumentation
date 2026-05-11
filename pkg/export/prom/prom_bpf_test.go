@@ -97,7 +97,7 @@ func TestBPFMetricsCollectsInternalMetricsForPrometheusReporter(t *testing.T) {
 					probeName: "tcp_connect",
 					probeID:   "7",
 					latency:   0.25,
-					count:     1,
+					count:     3,
 				}}
 			},
 			mapMetrics: func() []BpfMapMetrics {
@@ -120,7 +120,12 @@ func TestBPFMetricsCollectsInternalMetricsForPrometheusReporter(t *testing.T) {
 	runFn(ctx)
 
 	require.Eventually(t, func() bool {
-		probeMetric := gatheredMetric(t, registry, "obi_bpf_probe_latency_seconds", map[string]string{
+		probeExecutionsMetric := gatheredMetric(t, registry, "obi_bpf_probe_executions_total", map[string]string{
+			"probe_id":   "7",
+			"probe_type": "kprobe",
+			"probe_name": "tcp_connect",
+		})
+		probeLatencySumMetric := gatheredMetric(t, registry, "obi_bpf_probe_latency_seconds_total", map[string]string{
 			"probe_id":   "7",
 			"probe_type": "kprobe",
 			"probe_name": "tcp_connect",
@@ -136,11 +141,12 @@ func TestBPFMetricsCollectsInternalMetricsForPrometheusReporter(t *testing.T) {
 			"map_type": "hash",
 		})
 
-		if probeMetric == nil || mapEntriesMetric == nil || mapMaxEntriesMetric == nil {
+		if probeExecutionsMetric == nil || probeLatencySumMetric == nil || mapEntriesMetric == nil || mapMaxEntriesMetric == nil {
 			return false
 		}
 
-		return probeMetric.GetHistogram().GetSampleCount() >= 1 &&
+		return probeExecutionsMetric.GetCounter().GetValue() == 3 &&
+			probeLatencySumMetric.GetCounter().GetValue() == 0.75 &&
 			mapEntriesMetric.GetGauge().GetValue() == 4 &&
 			mapMaxEntriesMetric.GetGauge().GetValue() == 16
 	}, time.Second, 10*time.Millisecond)
@@ -274,7 +280,12 @@ func TestBPFMetricsCollectsInternalMetricsWhenPrometheusEndpointEnabled(t *testi
 	require.True(t, promProbeMetricFound)
 
 	require.Eventually(t, func() bool {
-		probeMetric := gatheredMetric(t, registry, "obi_bpf_probe_latency_seconds", map[string]string{
+		probeExecutionsMetric := gatheredMetric(t, registry, "obi_bpf_probe_executions_total", map[string]string{
+			"probe_id":   "7",
+			"probe_type": "kprobe",
+			"probe_name": "tcp_connect",
+		})
+		probeLatencySumMetric := gatheredMetric(t, registry, "obi_bpf_probe_latency_seconds_total", map[string]string{
 			"probe_id":   "7",
 			"probe_type": "kprobe",
 			"probe_name": "tcp_connect",
@@ -290,11 +301,12 @@ func TestBPFMetricsCollectsInternalMetricsWhenPrometheusEndpointEnabled(t *testi
 			"map_type": "hash",
 		})
 
-		if probeMetric == nil || mapEntriesMetric == nil || mapMaxEntriesMetric == nil {
+		if probeExecutionsMetric == nil || probeLatencySumMetric == nil || mapEntriesMetric == nil || mapMaxEntriesMetric == nil {
 			return false
 		}
 
-		return probeMetric.GetHistogram().GetSampleCount() >= 1 &&
+		return probeExecutionsMetric.GetCounter().GetValue() == 1 &&
+			probeLatencySumMetric.GetCounter().GetValue() == 0.25 &&
 			mapEntriesMetric.GetGauge().GetValue() == 4 &&
 			mapMaxEntriesMetric.GetGauge().GetValue() == 16
 	}, time.Second, 10*time.Millisecond)
