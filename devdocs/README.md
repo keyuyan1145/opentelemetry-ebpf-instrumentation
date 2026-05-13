@@ -16,4 +16,5 @@ This directory contains documentation that is not useful for our users but might
 - [Dependency Integrity Policy](dependency-integrity-policy.md): required dependency pinning and verification rules for Dockerfiles.
 - [Python asyncio and uvloop Context Propagation](python-asyncio-context-propagation.md): architecture and implementation of Python async context propagation for `asyncio` workloads, including applications running on `uvloop`.
 - [Trace-Profile Correlation](trace-profile-correlation.md): standard communication channel for correlating profiles to OBI traces.
+- [Kubernetes Metadata Cache Service (`k8s-cache`)](k8s-cache.md): what the standalone metadata cache service is, why it exists, and how to deploy it alongside OBI.
 - [Metrics](./metrics.md): how the NetO11y, AppO11y, and StatsO11y pipelines turn eBPF events into exported metrics, and where to edit when adding a new one.
