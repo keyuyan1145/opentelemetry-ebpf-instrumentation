@@ -12,6 +12,7 @@ WORKDIR /src
 COPY internal/test/integration/components/gomongo/ .
 
 # Build
+ENV CGO_ENABLED=0
 RUN go build -o testserver main.go
 
 # Create final image from minimal + built binary

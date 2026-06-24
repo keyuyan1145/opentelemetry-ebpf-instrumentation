@@ -18,8 +18,8 @@ COPY go.mod go.mod
 COPY go.sum go.sum
 COPY Makefile Makefile
 
-# Build
-RUN make compile-for-coverage
+# Build (inline the make compile-for-coverage target to avoid make/sh execve restrictions)
+RUN CGO_ENABLED=0 GOOS=linux go build -cover -a -o bin/obi cmd/obi/main.go
 
 # Create final image from minimal + built binary
 FROM ubuntu@sha256:d1e2e92c075e5ca139d51a140fff46f84315c0fdce203eab2807c7e495eff4f9
