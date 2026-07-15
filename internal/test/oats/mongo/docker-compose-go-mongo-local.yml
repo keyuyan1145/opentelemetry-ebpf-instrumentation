@@ -1,0 +1,36 @@
+services:
+  mongo:
+    image: mongo:8.3.1@sha256:ce32a4b67580c982e2020b07d4ffafdbd9ce474088434294d89c6bd9257f7788
+    ports:
+      - "27017:27017"
+
+  testserver:
+    build:
+      context: ../../../..
+      dockerfile: ./internal/test/integration/components/gomongo/Dockerfile
+    image: gomongo
+    ports:
+      - "8080:8080"
+
+  # eBPF auto instrumenter using published image (avoids bpf2go code generation requirement)
+  autoinstrumenter:
+    image: otel/ebpf-instrument:latest
+    command:
+      - --config=/configs/instrumenter-config-traces.yml
+    volumes:
+      - ./configs:/configs
+    privileged: true
+    network_mode: "service:testserver"
+    pid: "service:testserver"
+    environment:
+      OTEL_EBPF_TRACE_PRINTER: "text"
+      OTEL_EBPF_OPEN_PORT: "8080"
+      OTEL_EBPF_SERVICE_NAMESPACE: "integration-test"
+      OTEL_EBPF_METRICS_INTERVAL: "10ms"
+      OTEL_EBPF_BPF_BATCH_TIMEOUT: "10ms"
+      OTEL_EBPF_OTLP_TRACES_BATCH_TIMEOUT: "1ms"
+      OTEL_EBPF_LOG_LEVEL: "DEBUG"
+      OTEL_EBPF_BPF_DEBUG: "true"
+    depends_on:
+      testserver:
+        condition: service_started
