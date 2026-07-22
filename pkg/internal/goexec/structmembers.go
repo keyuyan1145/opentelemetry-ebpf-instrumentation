@@ -118,6 +118,7 @@ const (
 	MongoOpNamePos
 	MongoOpDBPos
 	MongoOneThirteenOne
+	MongoServerAddrPos
 	// database/sql stdlib
 	DriverConnCiPos
 	// lib/pq driver
@@ -462,6 +463,18 @@ var structMembers = map[string]structInfo{
 		fields: map[string]GoOffset{
 			"Name":     MongoOpNamePos,
 			"Database": MongoOpDBPos,
+		},
+	},
+	"go.mongodb.org/mongo-driver/x/mongo/driver/topology.Server": {
+		lib: "go.mongodb.org/mongo-driver",
+		fields: map[string]GoOffset{
+			"address": MongoServerAddrPos,
+		},
+	},
+	"go.mongodb.org/mongo-driver/v2/x/mongo/driver/topology.Server": {
+		lib: "go.mongodb.org/mongo-driver",
+		fields: map[string]GoOffset{
+			"address": MongoServerAddrPos,
 		},
 	},
 	"database/sql.driverConn": {

@@ -96,6 +96,7 @@ typedef enum {
     _mongo_op_name_pos,
     _mongo_db_name_pos,
     _mongo_op_name_new,
+    _mongo_server_addr_pos,
     // database/sql stdlib
     _driverconn_ci_pos,
     // lib/pq driver
