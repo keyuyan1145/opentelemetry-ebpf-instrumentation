@@ -50,65 +50,77 @@ MONGO_OP_DEF(distinct, "distinct")
 // Returns true if the hostname was written to req->hostname.
 static __always_inline bool
 read_mongo_hostname_from_operation(void *op_ptr, off_table_t *ot, mongo_go_client_req_t *req) {
+    bpf_dbg_printk("=== read_mongo_hostname_from_operation op_ptr=%llx ===", op_ptr);
+
     // Step 1: Read the interface data pointer from Operation.Deployment.
     // A Go interface is {itab ptr (8 bytes), data ptr (8 bytes)}.
     // We want the data ptr, which is 8 bytes past the start of the interface field.
     u64 deployment_offset = go_offset_of(ot, (go_offset){.v = _mongo_deployment_pos});
+    bpf_dbg_printk("step1: deployment_offset=%llu", deployment_offset);
     if (!deployment_offset) {
-        bpf_dbg_printk("can't find mongo deployment offset");
+        bpf_dbg_printk("step1 failed: can't find mongo deployment offset");
         return false;
     }
     void *topology_ptr = NULL;
     if (bpf_probe_read(&topology_ptr, sizeof(topology_ptr),
                        (void *)((u64)op_ptr + deployment_offset + 8))) {
-        bpf_dbg_printk("can't read mongo Operation.Deployment data ptr");
+        bpf_dbg_printk("step1 failed: can't read mongo Operation.Deployment data ptr");
         return false;
     }
     if (!topology_ptr) {
+        bpf_dbg_printk("step1 failed: topology_ptr is NULL");
         return false;
     }
+    bpf_dbg_printk("step1 ok: topology_ptr=%llx", topology_ptr);
 
     // Step 2: Read topology.Topology.cfg (*Config pointer).
     u64 cfg_offset = go_offset_of(ot, (go_offset){.v = _mongo_topo_cfg_pos});
+    bpf_dbg_printk("step2: cfg_offset=%llu", cfg_offset);
     if (!cfg_offset) {
-        bpf_dbg_printk("can't find mongo topology cfg offset");
+        bpf_dbg_printk("step2 failed: can't find mongo topology cfg offset");
         return false;
     }
     void *cfg_ptr = NULL;
     if (bpf_probe_read(&cfg_ptr, sizeof(cfg_ptr),
                        (void *)((u64)topology_ptr + cfg_offset))) {
-        bpf_dbg_printk("can't read mongo topology.cfg");
+        bpf_dbg_printk("step2 failed: can't read mongo topology.cfg");
         return false;
     }
     if (!cfg_ptr) {
+        bpf_dbg_printk("step2 failed: cfg_ptr is NULL");
         return false;
     }
+    bpf_dbg_printk("step2 ok: cfg_ptr=%llx", cfg_ptr);
 
     // Step 3: Read the array pointer from Config.SeedList slice header.
     // A Go slice is {array ptr (8 bytes), len (8 bytes), cap (8 bytes)}.
     // The array ptr is the first word of the slice header.
     u64 seedlist_offset = go_offset_of(ot, (go_offset){.v = _mongo_cfg_seedlist_pos});
+    bpf_dbg_printk("step3: seedlist_offset=%llu", seedlist_offset);
     if (!seedlist_offset) {
-        bpf_dbg_printk("can't find mongo cfg seedlist offset");
+        bpf_dbg_printk("step3 failed: can't find mongo cfg seedlist offset");
         return false;
     }
     void *seedlist_array_ptr = NULL;
     if (bpf_probe_read(&seedlist_array_ptr, sizeof(seedlist_array_ptr),
                        (void *)((u64)cfg_ptr + seedlist_offset))) {
-        bpf_dbg_printk("can't read mongo cfg.SeedList array ptr");
+        bpf_dbg_printk("step3 failed: can't read mongo cfg.SeedList array ptr");
         return false;
     }
     if (!seedlist_array_ptr) {
+        bpf_dbg_printk("step3 failed: seedlist_array_ptr is NULL");
         return false;
     }
+    bpf_dbg_printk("step3 ok: seedlist_array_ptr=%llx", seedlist_array_ptr);
 
     // Step 4: Read SeedList[0] — the first string in the array (offset 0).
     // A Go string is {ptr (8 bytes), len (8 bytes)}, so offset 0 is the first string's ptr.
     if (!read_go_str("server addr", seedlist_array_ptr, 0,
                      req->hostname, sizeof(req->hostname))) {
-        bpf_dbg_printk("can't read mongodb server address from SeedList[0]");
+        bpf_dbg_printk("step4 failed: can't read mongodb server address from SeedList[0]");
         return false;
     }
+    bpf_dbg_printk("step4 ok: hostname=%s", req->hostname);
 
     return true;
 }
@@ -255,7 +267,11 @@ int obi_uprobe_mongo_op_execute(struct pt_regs *ctx) {
     }
 
     // Non-fatal: the span is still emitted if hostname extraction fails.
-    read_mongo_hostname_from_operation(op_ptr, ot, req);
+    if (read_mongo_hostname_from_operation(op_ptr, ot, req)) {
+        bpf_dbg_printk("mongo hostname extracted: %s", req->hostname);
+    } else {
+        bpf_dbg_printk("mongo hostname extraction failed, server.address will be empty");
+    }
 
     bpf_map_update_elem(&ongoing_mongo_requests, &g_key, req, BPF_ANY);
 

@@ -6,6 +6,7 @@ package ebpfcommon // import "go.opentelemetry.io/obi/pkg/ebpf/common"
 import (
 	"encoding/binary"
 	"errors"
+	"log/slog"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -643,8 +644,13 @@ func ReadGoMongoRequestIntoSpan(record *ringbuf.Record) (request.Span, bool, err
 	// Read the hostname captured by the eBPF probe from the driver's connection URI.
 	// The stored value may include a port suffix (e.g. "mongo:27017"), so strip it.
 	hostName := cstr(event.Hostname[:])
+	slog.Debug("mongo transform: raw hostname from eBPF event", "raw_hostname", hostName)
 	if idx := strings.LastIndex(hostName, ":"); idx != -1 {
 		hostName = hostName[:idx]
+		slog.Debug("mongo transform: stripped port from hostname", "hostname", hostName)
+	}
+	if hostName == "" {
+		slog.Debug("mongo transform: hostname is empty, server.address will not be set")
 	}
 
 	op, coll := opAndCollectionFromEvent(event)
