@@ -44,6 +44,75 @@ MONGO_OP_DEF(countDocuments, "countDocuments")
 MONGO_OP_DEF(estimatedDocumentCount, "estimatedDocumentCount")
 MONGO_OP_DEF(distinct, "distinct")
 
+// Extracts the MongoDB server address from the Operation.Deployment pointer chain.
+// Follows: Operation.Deployment (interface) → *topology.Topology → cfg (*Config) → SeedList[0] (string)
+// SeedList[0] is the first address from the connection URI, e.g. "mongo:27017".
+// Returns true if the hostname was written to req->hostname.
+static __always_inline bool
+read_mongo_hostname_from_operation(void *op_ptr, off_table_t *ot, mongo_go_client_req_t *req) {
+    // Step 1: Read the interface data pointer from Operation.Deployment.
+    // A Go interface is {itab ptr (8 bytes), data ptr (8 bytes)}.
+    // We want the data ptr, which is 8 bytes past the start of the interface field.
+    u64 deployment_offset = go_offset_of(ot, (go_offset){.v = _mongo_deployment_pos});
+    if (!deployment_offset) {
+        bpf_dbg_printk("can't find mongo deployment offset");
+        return false;
+    }
+    void *topology_ptr = NULL;
+    if (bpf_probe_read(&topology_ptr, sizeof(topology_ptr),
+                       (void *)((u64)op_ptr + deployment_offset + 8))) {
+        bpf_dbg_printk("can't read mongo Operation.Deployment data ptr");
+        return false;
+    }
+    if (!topology_ptr) {
+        return false;
+    }
+
+    // Step 2: Read topology.Topology.cfg (*Config pointer).
+    u64 cfg_offset = go_offset_of(ot, (go_offset){.v = _mongo_topo_cfg_pos});
+    if (!cfg_offset) {
+        bpf_dbg_printk("can't find mongo topology cfg offset");
+        return false;
+    }
+    void *cfg_ptr = NULL;
+    if (bpf_probe_read(&cfg_ptr, sizeof(cfg_ptr),
+                       (void *)((u64)topology_ptr + cfg_offset))) {
+        bpf_dbg_printk("can't read mongo topology.cfg");
+        return false;
+    }
+    if (!cfg_ptr) {
+        return false;
+    }
+
+    // Step 3: Read the array pointer from Config.SeedList slice header.
+    // A Go slice is {array ptr (8 bytes), len (8 bytes), cap (8 bytes)}.
+    // The array ptr is the first word of the slice header.
+    u64 seedlist_offset = go_offset_of(ot, (go_offset){.v = _mongo_cfg_seedlist_pos});
+    if (!seedlist_offset) {
+        bpf_dbg_printk("can't find mongo cfg seedlist offset");
+        return false;
+    }
+    void *seedlist_array_ptr = NULL;
+    if (bpf_probe_read(&seedlist_array_ptr, sizeof(seedlist_array_ptr),
+                       (void *)((u64)cfg_ptr + seedlist_offset))) {
+        bpf_dbg_printk("can't read mongo cfg.SeedList array ptr");
+        return false;
+    }
+    if (!seedlist_array_ptr) {
+        return false;
+    }
+
+    // Step 4: Read SeedList[0] — the first string in the array (offset 0).
+    // A Go string is {ptr (8 bytes), len (8 bytes)}, so offset 0 is the first string's ptr.
+    if (!read_go_str("server addr", seedlist_array_ptr, 0,
+                     req->hostname, sizeof(req->hostname))) {
+        bpf_dbg_printk("can't read mongodb server address from SeedList[0]");
+        return false;
+    }
+
+    return true;
+}
+
 static __always_inline int
 obi_uprobe_mongo_coll_op(struct pt_regs *ctx, const char *op, const u32 op_len) {
     void *goroutine_addr = GOROUTINE_PTR(ctx);
@@ -184,6 +253,9 @@ int obi_uprobe_mongo_op_execute(struct pt_regs *ctx) {
         bpf_dbg_printk("can't read mongodb Operation.Database");
         return 0;
     }
+
+    // Non-fatal: the span is still emitted if hostname extraction fails.
+    read_mongo_hostname_from_operation(op_ptr, ot, req);
 
     bpf_map_update_elem(&ongoing_mongo_requests, &g_key, req, BPF_ANY);
 

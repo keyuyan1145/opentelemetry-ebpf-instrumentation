@@ -119,6 +119,9 @@ const (
 	MongoOpDBPos
 	MongoOneThirteenOne
 	MongoServerAddrPos
+	MongoDeploymentPos
+	MongoTopoCfgPos
+	MongoCfgSeedlistPos
 	// database/sql stdlib
 	DriverConnCiPos
 	// lib/pq driver
@@ -448,8 +451,9 @@ var structMembers = map[string]structInfo{
 	"go.mongodb.org/mongo-driver/x/mongo/driver.Operation": {
 		lib: "go.mongodb.org/mongo-driver",
 		fields: map[string]GoOffset{
-			"Name":     MongoOpNamePos,
-			"Database": MongoOpDBPos,
+			"Name":       MongoOpNamePos,
+			"Database":   MongoOpDBPos,
+			"Deployment": MongoDeploymentPos,
 		},
 	},
 	"go.mongodb.org/mongo-driver/v2/mongo.Collection": {
@@ -461,8 +465,33 @@ var structMembers = map[string]structInfo{
 	"go.mongodb.org/mongo-driver/v2/x/mongo/driver.Operation": {
 		lib: "go.mongodb.org/mongo-driver",
 		fields: map[string]GoOffset{
-			"Name":     MongoOpNamePos,
-			"Database": MongoOpDBPos,
+			"Name":       MongoOpNamePos,
+			"Database":   MongoOpDBPos,
+			"Deployment": MongoDeploymentPos,
+		},
+	},
+	"go.mongodb.org/mongo-driver/x/mongo/driver/topology.Topology": {
+		lib: "go.mongodb.org/mongo-driver",
+		fields: map[string]GoOffset{
+			"cfg": MongoTopoCfgPos,
+		},
+	},
+	"go.mongodb.org/mongo-driver/v2/x/mongo/driver/topology.Topology": {
+		lib: "go.mongodb.org/mongo-driver",
+		fields: map[string]GoOffset{
+			"cfg": MongoTopoCfgPos,
+		},
+	},
+	"go.mongodb.org/mongo-driver/x/mongo/driver/topology.config": {
+		lib: "go.mongodb.org/mongo-driver",
+		fields: map[string]GoOffset{
+			"seedList": MongoCfgSeedlistPos,
+		},
+	},
+	"go.mongodb.org/mongo-driver/v2/x/mongo/driver/topology.Config": {
+		lib: "go.mongodb.org/mongo-driver",
+		fields: map[string]GoOffset{
+			"SeedList": MongoCfgSeedlistPos,
 		},
 	},
 	"go.mongodb.org/mongo-driver/x/mongo/driver/topology.Server": {
