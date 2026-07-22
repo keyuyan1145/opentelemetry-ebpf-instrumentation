@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"strconv"
+	"strings"
 	"unsafe"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
@@ -631,12 +632,19 @@ func ReadGoMongoRequestIntoSpan(record *ringbuf.Record) (request.Span, bool, err
 	}
 
 	peer := ""
-	hostname := ""
+	host := ""
 	hostPort := 0
 
 	if event.Conn.S_port != 0 || event.Conn.D_port != 0 {
-		peer, hostname = (*BPFConnInfo)(unsafe.Pointer(&event.Conn)).reqHostInfo()
+		peer, host = (*BPFConnInfo)(unsafe.Pointer(&event.Conn)).reqHostInfo()
 		hostPort = int(event.Conn.D_port)
+	}
+
+	// Read the hostname captured by the eBPF probe from the driver's connection URI.
+	// The stored value may include a port suffix (e.g. "mongo:27017"), so strip it.
+	hostName := cstr(event.Hostname[:])
+	if idx := strings.LastIndex(hostName, ":"); idx != -1 {
+		hostName = hostName[:idx]
 	}
 
 	op, coll := opAndCollectionFromEvent(event)
@@ -651,7 +659,8 @@ func ReadGoMongoRequestIntoSpan(record *ringbuf.Record) (request.Span, bool, err
 		Method:        op,
 		Path:          coll,
 		Peer:          peer,
-		Host:          hostname,
+		Host:          host,
+		HostName:      hostName,
 		HostPort:      hostPort,
 		ContentLength: 0,
 		RequestStart:  int64(event.StartMonotimeNs),
