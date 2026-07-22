@@ -16,4 +16,5 @@ expected:
     equals: insert testdb.items
     attributes:
       db.collection.name: testdb.items
+      server.address: mongo
       server.port: '27017'
